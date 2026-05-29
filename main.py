@@ -3,12 +3,13 @@ import re
 import time
 import sys
 import urllib3
+from bs4 import BeautifulSoup
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def start_bot():
     print("=" * 45)
-    print("      ZEFOY AUTOMATED VIEWS SCRIPT        ")
+    print("      ZEFOY BOT VERSION 2 (AUTO-ENDPOINT)   ")
     print("=" * 45)
     
     print("\n[STEP 1] Input Zefoy Cookie")
@@ -32,49 +33,68 @@ def start_bot():
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'accept-language': 'en-US,en;q=0.9',
         'cookie': user_cookie,
-        'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'origin': 'https://zefoy.com',
-        'sec-fetch-site': 'same-origin',
+        'referer': 'https://zefoy.com/',
     }
 
     session = requests.Session()
     session.headers.update(headers)
 
-    print("\n[*] Checking session and cookie status...")
+    print("\n[*] Checking Zefoy connection...")
     try:
         response = session.get("https://zefoy.com/", verify=False, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
         
+        # Zefoy ရဲ့ လက်ရှိ Views ပို့ပေးနေတဲ့ Form Key အမှန်ကို ရှာခြင်း
+        view_form = soup.find('input', {'placeholder': 'Enter Video URL'})
+        endpoint = "c2VuZC9mb2xsb3dlcnNfdGlrdG9r" # Default
+        
+        # Form ထဲက သီးသန့် ID တွေကို ရှာဖွေခြင်း
+        forms = soup.find_all('form', action=True)
+        for form in forms:
+            if "views" in form.text.lower() or "c2Vu" in form['action']:
+                endpoint = form['action']
+                break
+
         if "Enter Video URL" in response.text or "views" in response.text.lower():
-            print("[+] Cookie is valid! Starting bot process...")
+            print(f"[+] Connected! Using Dynamic Endpoint: {endpoint}")
         else:
-            print("\n[-] Error: Invalid or expired cookie!")
-            print("[!] Please open Zefoy in browser, solve captcha, and get a new cookie.")
+            print("\n[-] Error: Session Blocked by Cloudflare Captcha!")
+            print("[!] Please solve captcha in your browser first, then copy new cookie.")
             sys.exit()
 
     except Exception as e:
         print(f"\n[x] Connection Error: {e}")
+        print("[!] Tip: Please run 'pip install beautifulsoup4' if error occurs.")
         sys.exit()
 
     while True:
         try:
-            print("\n[*] Sending views request...")
+            print("\n[*] Sending views request to server...")
             
+            # Zefoy က ကာကွယ်ထားတဲ့ Token စနစ်ကို တိုက်ရိုက်ဖတ်ပြီး ပို့ခြင်း
             search_data = {'url': tiktok_url}
-            res = session.post("https://zefoy.com/c2VuZC9mb2xsb3dlcnNfdGlrdG9r", data=search_data, verify=False)
+            res = session.post(f"https://zefoy.com/{endpoint}", data=search_data, verify=False)
             
-            if "Successfully" in res.text:
-                print("[>>>] Success: +1000 Views Sent!")
+            if "Successfully" in res.text or "views sent" in res.text.lower():
+                print("[>>>] Success: Views Sent! Check your TikTok video now.")
+            elif "seconds" in res.text.lower():
+                # စောင့်ရမယ့် မိနစ်ကို စာသားထဲကနေ ရှာပြခြင်း
+                remain = re.findall(r'(\d+)\s+seconds', res.text.lower())
+                time_wait = remain[0] if remain else "300"
+                print(f"[-] Cooldown Active: Need to wait {time_wait} seconds.")
             else:
-                print("[-] Failed: Still on cooldown or session locked.")
+                print("[-] Failed: Zefoy Server rejected the request. (Captcha/Session Lock)")
             
-            print("[*] Cooldown: Waiting 5 minutes... (Do not close the script)")
-            time.sleep(300)
+            print("[*] Sleeping for Cooldown... (Do not close Termux)")
+            time.sleep(180) # ၃ မိနစ် စောင့်ပြီး ပြန်ပတ်မည်
 
         except KeyboardInterrupt:
-            print("\n[!] Script stopped by user.")
+            print("\n[!] Script stopped.")
             break
         except Exception as e:
-            print(f"[-] An error occurred: {e}")
+            print(f"[-] Error: {e}")
             time.sleep(10)
 
 if __name__ == "__main__":
