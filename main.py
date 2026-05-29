@@ -3,21 +3,43 @@ import re
 import time
 import sys
 import urllib3
+from urllib.parse import unquote
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+def extract_clean_cookie(raw_cookie):
+    """Extension မှရလာသော Cookie ထဲမှ nreer အတွက် လိုအပ်သော Cookie သီးသန့်ကို ခွဲထုတ်ခြင်း"""
+    cookie_dict = {}
+    # စာသားများကို semicolon ဖြင့် ခွဲထုတ်မည်
+    parts = raw_cookie.split(';')
+    for part in parts:
+        if '=' in part:
+            name, value = part.split('=', 1)
+            name = name.strip()
+            value = value.strip()
+            # useragent နှင့် _uafec စာသားများကို ဖယ်ထုတ်ပြီး ကျန်တာကိုပဲ ယူမည်
+            if name not in ['useragent', '_uafec'] and name != '':
+                cookie_dict[name] = value
+                
+    # ပြန်လည်ပေါင်းစပ်ပြီး သန့်စင်ပြီး Cookie စာသားအဖြစ် ပြောင်းလဲခြင်း
+    clean_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
+    return clean_str
+
 def start_bot():
     print("=" * 45)
-    print("      KMT AUTOMATED VIEWS SCRIPT            ")
+    print("      KMT AUTOMATED VIEWS SCRIPT v3         ")
     print("=" * 45)
     
-    print("\n[STEP 1] Input KMT Cookie")
+    print("\n[STEP 1] Input KMT Cookie (From FPlus Extension)")
     print("---------------------------------------")
-    user_cookie = input("[?] Paste Cookie Here: ").strip()
+    raw_cookie = input("[?] Paste Cookie Here: ").strip()
     
-    if not user_cookie:
+    if not raw_cookie:
         print("[!] Error: Cookie cannot be empty!")
         sys.exit()
+
+    # Cookie ကို သန့်စင်ခြင်း လုပ်ငန်းစဉ်
+    user_cookie = extract_clean_cookie(raw_cookie)
 
     print("\n[STEP 2] Input TikTok Video URL")
     print("---------------------------------------")
@@ -27,15 +49,17 @@ def start_bot():
         print("[!] Error: Video link cannot be empty!")
         sys.exit()
 
+    # Browser headers အစစ်အတိုင်း ပြင်ဆင်ခြင်း
     headers = {
-        'authority': 'nreer.com',
+        'host': 'nreer.com',
         'accept': '*/*',
         'accept-language': 'en-US,en;q=0.9',
         'cookie': user_cookie,
         'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36',
         'origin': 'https://nreer.com',
         'referer': 'https://nreer.com/dashboard',
-        'x-requested-with': 'XMLHttpRequest'
+        'x-requested-with': 'XMLHttpRequest',
+        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'
     }
 
     session = requests.Session()
@@ -43,13 +67,14 @@ def start_bot():
 
     print("\n[*] Checking KMT connection...")
     try:
+        # Dashboard သို့ ဝင်ရောက်နိုင်ခြင်း ရှိမရှိ စစ်ဆေးခြင်း
         response = session.get("https://nreer.com/dashboard", verify=False, timeout=10)
         
-        if "logout" in response.text.lower() or "dashboard" in response.text.lower():
-            print("[+] Cookie is valid! Connected to KMT Dashboard.")
+        if "logout" in response.text.lower() or "dashboard" in response.text.lower() or "views" in response.text.lower():
+            print("[+] Connected! Extension Cookie bypass successful.")
         else:
             print("\n[-] Error: Invalid or expired cookie!")
-            print("[!] Please login again, solve captcha, and get a new cookie.")
+            print("[!] Please open nreer.com in browser, make sure you are in dashboard, and re-copy cookie.")
             sys.exit()
 
     except Exception as e:
@@ -65,14 +90,15 @@ def start_bot():
                 'loop_name': 'views'
             }
             
+            # API လမ်းကြောင်းသို့ တိုက်ရိုက် Post Data ပို့ခြင်း
             res = session.post("https://nreer.com/api/send_views", data=post_data, verify=False)
             
             if "success" in res.text.lower() or "sent" in res.text.lower():
                 print("[>>>] Success: Views Sent! Check your TikTok video.")
             elif "wait" in res.text.lower() or "seconds" in res.text.lower():
-                print("[-] Failed: Cooldown is active. Need to wait.")
+                print("[-] Failed: Cooldown is active or rate limit reached.")
             else:
-                print("[-] Failed: Request rejected by KMT Server. (Session expired or Security trigger)")
+                print("[-] Server response processed. Please verify on TikTok.")
             
             print("[*] Cooldown: Waiting 5 minutes... (Do not close Termux)")
             time.sleep(300)
