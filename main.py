@@ -12,7 +12,7 @@ import json
 from urllib3.exceptions import InsecureRequestWarning
 from http import cookiejar
 
-# pystyle မရှိရင် script မပိတ်သွားအောင် handle လုပ်ထားသည်
+# pystyle handling
 try:
     from pystyle import Colorate, Colors, Center, Write, Col
 except ImportError:
@@ -118,6 +118,7 @@ def send(did, iid, cdid, openudid):
             payload = f"item_id={__aweme_id}&play_delta=1"  
             sig     = Gorgon(params=params, cookies=None, data=None, unix=int(time.time())).get_value()  
 
+            # ၅ စက္ကန့်အတွင်း Response မပြန်ရင် ပိတ်သွားအောင် timeout ထည့်ထားသည်
             response = requests.post(  
                 url = ("https://api16-va.tiktokv.com/aweme/v1/aweme/stats/?" + params),  
                 data    = payload,  
@@ -127,7 +128,8 @@ def send(did, iid, cdid, openudid):
                     'x-khronos': sig['X-Khronos'],
                     'user-agent': 'okhttp/3.10.0.1'
                 },  
-                verify  = False  
+                verify  = False,
+                timeout = 5
             )  
               
             try:  
@@ -135,12 +137,14 @@ def send(did, iid, cdid, openudid):
                 _lock.acquire()  
                 print(Colorate.Horizontal(Colors.green_to_white, f"+ - sent views {response.json()['log_pb']['impr_id']} {__aweme_id} {reqs}"))  
                 _lock.release()  
-            except:  
+            except Exception as inner_e:  
                 if _lock.locked():
                     _lock.release()
+                print(f"[-] Response Read Error: {inner_e} | Raw Response: {response.text[:100]}")
                 continue  
         except Exception as e:  
-            pass  
+            # Loading မှာ ရပ်မနေစေရန် Background Error များကို ဖော်ပြပေးမည့်နေရာ
+            print(f"[-] Thread Network Error: {e}")
 
 def rpsm_loop():
     global rps, rpm, reqs
@@ -150,34 +154,25 @@ def rpsm_loop():
         rps = round((reqs - initial) / 1.5, 1)
         rpm = round(rps * 60, 1)
 
-def title_loop():
-    global rps, rpm, reqs
-    while True:
-        if os.name == "nt":
-            os.system(f'title TikTok Viewbot by @LANA ^| reqs: {reqs} rps: {rps} rpm: {rpm}')
-        time.sleep(0.1)
-
 if __name__ == "__main__":
-    os.system("cls" if os.name == "nt" else "clear")
-    if os.name == "nt":
-        os.system("title TikTok Viewbot by @LANA")
+    os.system("clear")
 
     txt = """\n\n╭╮╱╱╭━━━┳━╮╱╭┳━━━╮╭━━╮╭━━━┳━━━━╮\n┃┃╱╱┃╭━╮┃┃╰╮┃┃╭━╮┃┃╭╮┃┃╭━╮┃╭╮╭╮┃\n┃┃╱╱┃┃╱┃┃╭╮╰╯┃┃╱┃┃┃╰╯╰┫┃╱┃┣╯┃┃╰╯\n┃┃╱╭┫╰━╯┃┃╰╮┃┃╰━╯┃┃╭━╮┃┃╱┃┃╱┃┃\n┃╰━╯┃╭━╮┃┃╱┃┃┃╭━╮┃┃╰━╯┃╰━╯┃╱┃┃\n╰━━━┻╯╱╰┻╯╱╰━┻╯╱╰╯╰━━━┻━━━╯╱╰╯\n"""
     print(Colorate.Vertical(Colors.DynamicMIX((Col.light_green, Col.purple)), Center.XCenter(txt)))
 
     try:  
-        link = str(Write.Input("\n\n            ? = Link Tiktok > ", Colors.blue_to_red, interval=0.0001))  
+        # Termux မှာ ပိတ်မနေအောင် ပုံမှန် input အဖြစ် ပြောင်းလဲထားသည်
+        link = input("\n\n            ? = Link Tiktok > ")
         if len(re.findall(r"(\d{18,19})", link)) == 1:
             __aweme_id = str(re.findall(r"(\d{18,19})", link)[0])
         else:
+            print("[*] Link ကို စစ်ဆေးနေပါသည်...")
             __aweme_id = str(re.findall(r"(\d{18,19})", requests.head(link, allow_redirects=True, timeout=5).url)[0])
     except Exception as e:  
-        os.system("cls" if os.name == "nt" else "clear")  
-        input(Col.blue + "x - Invalid link, try inputting video id only" + Col.reset)  
+        print(f"\n[x] Invalid link သို့မဟုတ် Link ဖတ်မရပါ: {e}")  
         sys.exit(0)  
       
-    os.system("cls" if os.name == "nt" else "clear")  
-    print("loading...")  
+    print("\n[+] Starting Bot...")  
       
     _lock = threading.Lock()  
     reqs = 0  
@@ -185,27 +180,31 @@ if __name__ == "__main__":
     rps = 0  
       
     threading.Thread(target=rpsm_loop, daemon=True).start()  
-    threading.Thread(target=title_loop, daemon=True).start()  
 
-    # devices.txt ရှိမရှိ စစ်ဆေးခြင်း
+    # devices.txt စစ်ဆေးခြင်း
     if not os.path.exists('devices.txt'):
-        print("[!] Error: 'devices.txt' file ရှာမတွေ့ပါ။ စက်ရုပ် device list တွေ ထည့်ပေးဖို့ လိုအပ်ပါတယ်။")
+        print("[!] Error: 'devices.txt' file မရှိပါ။ အရင်ဆောက်ပေးပါ။")
         sys.exit(1)
 
     with open('devices.txt', 'r') as f:
         devices = f.read().splitlines()  
     
-    if not devices:
-        print("[!] Error: 'devices.txt' ထဲတွင် မည်သည့် device code မှ မရှိပါ။")
+    if not devices or len(devices) == 0:
+        print("[!] Error: 'devices.txt' ထဲမှာ ဘာ data မှ မရှိပါ။")
         sys.exit(1)
+
+    print(f"[+] Device {len(devices)} ခု တွေ့ရှိပြီး စတင်ပတ်နေပါပြီ။\n")
 
     while True:  
         device = random.choice(devices)  
-        # base64 ကုဒ်များကို ရှင်းလင်းပြီး တိုက်ရိုက်ရေးသားထားသည်
+        if not device.strip():
+            continue
+            
         if threading.active_count() < 100:  
             try:
                 did, iid, cdid, openudid = device.split(':')  
                 threading.Thread(target=send, args=[did, iid, cdid, openudid]).start()
             except ValueError:
-                # device ပုံစံမမှန်ရင် ကျော်သွားမယ်
+                print(f"[-] 'devices.txt' ထဲက ဒီစာကြောင်း ပုံစံမမှန်ပါ -> {device}")
                 continue
+        time.sleep(0.1) # Termux Crash မဖြစ်စေရန် စက္ကန့်ပိုင်း ထိန်းထားသည်
