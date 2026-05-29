@@ -10,24 +10,21 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 def extract_clean_cookie(raw_cookie):
     """Extension မှရလာသော Cookie ထဲမှ nreer အတွက် လိုအပ်သော Cookie သီးသန့်ကို ခွဲထုတ်ခြင်း"""
     cookie_dict = {}
-    # စာသားများကို semicolon ဖြင့် ခွဲထုတ်မည်
     parts = raw_cookie.split(';')
     for part in parts:
         if '=' in part:
             name, value = part.split('=', 1)
             name = name.strip()
             value = value.strip()
-            # useragent နှင့် _uafec စာသားများကို ဖယ်ထုတ်ပြီး ကျန်တာကိုပဲ ယူမည်
             if name not in ['useragent', '_uafec'] and name != '':
                 cookie_dict[name] = value
                 
-    # ပြန်လည်ပေါင်းစပ်ပြီး သန့်စင်ပြီး Cookie စာသားအဖြစ် ပြောင်းလဲခြင်း
     clean_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
     return clean_str
 
 def start_bot():
     print("=" * 45)
-    print("      KMT AUTOMATED VIEWS SCRIPT v3         ")
+    print("      KMT AUTOMATED VIEWS SCRIPT v3.1       ")
     print("=" * 45)
     
     print("\n[STEP 1] Input KMT Cookie (From FPlus Extension)")
@@ -38,7 +35,6 @@ def start_bot():
         print("[!] Error: Cookie cannot be empty!")
         sys.exit()
 
-    # Cookie ကို သန့်စင်ခြင်း လုပ်ငန်းစဉ်
     user_cookie = extract_clean_cookie(raw_cookie)
 
     print("\n[STEP 2] Input TikTok Video URL")
@@ -49,7 +45,6 @@ def start_bot():
         print("[!] Error: Video link cannot be empty!")
         sys.exit()
 
-    # Browser headers အစစ်အတိုင်း ပြင်ဆင်ခြင်း
     headers = {
         'host': 'nreer.com',
         'accept': '*/*',
@@ -67,7 +62,6 @@ def start_bot():
 
     print("\n[*] Checking KMT connection...")
     try:
-        # Dashboard သို့ ဝင်ရောက်နိုင်ခြင်း ရှိမရှိ စစ်ဆေးခြင်း
         response = session.get("https://nreer.com/dashboard", verify=False, timeout=10)
         
         if "logout" in response.text.lower() or "dashboard" in response.text.lower() or "views" in response.text.lower():
@@ -90,7 +84,6 @@ def start_bot():
                 'loop_name': 'views'
             }
             
-            # API လမ်းကြောင်းသို့ တိုက်ရိုက် Post Data ပို့ခြင်း
             res = session.post("https://nreer.com/api/send_views", data=post_data, verify=False)
             
             if "success" in res.text.lower() or "sent" in res.text.lower():
@@ -100,8 +93,9 @@ def start_bot():
             else:
                 print("[-] Server response processed. Please verify on TikTok.")
             
-            print("[*] Cooldown: Waiting 5 minutes... (Do not close Termux)")
-            time.sleep(300)
+            # Cooldown အချိန်ကို ၃ မိနစ် (၁၈၀ စက္ကန့်) သို့ လျှော့ချပြင်ဆင်ထားပါသည်
+            print("[*] Cooldown: Waiting 3 minutes... (Do not close Termux)")
+            time.sleep(180)
 
         except KeyboardInterrupt:
             print("\n[!] Script stopped by user.")
